@@ -1,0 +1,26 @@
+# catkin / CMake build output
+build/
+devel/
+install/
+logs/
+.catkin_tools/
+CMakeLists.txt.user
+
+# Compiled files
+*.o
+*.so
+*.a
+
+# Python
+__pycache__/
+*.pyc
+
+# Data and recordings (share large files separately)
+*.bag
+*.bag.active
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
