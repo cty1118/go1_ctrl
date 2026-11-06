@@ -26,7 +26,7 @@ roslaunch go1_ctrl sim.launch      # hang:=true = robot hangs in the air (rig te
 rosrun go1_ctrl keyboard           # 1 passive, 2 stand, 3-6 walk/trot/canter/gallop, space stop
 ```
 
-If Gazebo freezes at sim time 0.35 s on startup, restart it.
+If Gazebo gets stuck at sim time 0.35 s on startup, restart it.
 
 The loop calls the modules once per cycle, in this order. The shared structs are in `types.h`.
 
