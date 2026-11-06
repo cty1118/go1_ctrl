@@ -1,6 +1,6 @@
 #pragma once
 // Shared data structures (Members 1 + 2).
-// Frozen at the interface meeting: change only after agreement in the group chat.
+// Every module uses these structs. Need a change? Tell Godfred first.
 
 #include <array>
 #include <Eigen/Dense>

@@ -1,7 +1,7 @@
 #pragma once
 // Owner: Member 2. Body state estimation (attitude, velocity, height).
 // PLACEHOLDER (by Godfred) so the whole loop builds and runs.
-// Proposed interface, confirm at the freeze meeting. Replace the body in src/estimator.cpp.
+// main.cpp calls this interface: keep it, and replace the body in src/estimator.cpp. Need a change? Tell Godfred.
 #include <array>
 #include "go1_ctrl/types.h"
 

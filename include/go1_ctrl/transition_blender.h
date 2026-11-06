@@ -1,7 +1,7 @@
 #pragma once
 // Owner: Member 6. Blending between swing and stance commands at touchdown and lift-off.
 // PLACEHOLDER (by Godfred) so the whole loop builds and runs.
-// Proposed interface, confirm at the freeze meeting. Replace the body in src/transition_blender.cpp.
+// main.cpp calls this interface: keep it, and replace the body in src/transition_blender.cpp. Need a change? Tell Godfred.
 #include <array>
 #include "go1_ctrl/types.h"
 

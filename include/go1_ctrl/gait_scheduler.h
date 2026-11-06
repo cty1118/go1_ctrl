@@ -1,7 +1,7 @@
 #pragma once
 // Owner: Member 3. Gait scheduler: phase, contact plan and progress of each leg.
 // PLACEHOLDER (by Godfred) so the whole loop builds and runs.
-// Proposed interface, confirm at the freeze meeting. Replace the body in src/gait_scheduler.cpp.
+// main.cpp calls this interface: keep it, and replace the body in src/gait_scheduler.cpp. Need a change? Tell Godfred.
 #include "go1_ctrl/types.h"
 
 namespace go1 {

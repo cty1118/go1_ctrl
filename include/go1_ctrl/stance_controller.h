@@ -1,7 +1,7 @@
 #pragma once
 // Owner: Member 5. Stance leg impedance control.
 // PLACEHOLDER (by Godfred) so the whole loop builds and runs.
-// Proposed interface, confirm at the freeze meeting. Replace the body in src/stance_controller.cpp.
+// main.cpp calls this interface: keep it, and replace the body in src/stance_controller.cpp. Need a change? Tell Godfred.
 #include "go1_ctrl/types.h"
 
 namespace go1 {
