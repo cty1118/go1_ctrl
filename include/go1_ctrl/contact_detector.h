@@ -1,7 +1,7 @@
 #pragma once
 // Owner: Member 6. Contact detection from foot force with hysteresis.
 // PLACEHOLDER (by Godfred) so the whole loop builds and runs.
-// main.cpp calls this interface: keep it, and replace the body in src/contact_detector.cpp. Need a change? Tell Godfred.
+// main.cpp calls this interface: keep it, and replace the body in src/contact_detector.cpp.
 #include <array>
 #include "go1_ctrl/types.h"
 

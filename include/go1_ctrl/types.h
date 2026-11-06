@@ -1,6 +1,6 @@
 #pragma once
 // Shared data structures (Members 1 + 2).
-// Every module uses these structs. Need a change? Tell Godfred first.
+// Every module uses these structs (see the team rules in the README before changing them).
 
 #include <array>
 #include <Eigen/Dense>

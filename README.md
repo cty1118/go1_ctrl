@@ -18,7 +18,7 @@ cd ~/unitree_ws && catkin_make && source devel/setup.bash
 
 **Framework: done (Godfred).** The IO for Gazebo and the real robot, the state machine (Passive / Stand / Gait), the main loop, keyboard control, launch files and the build are in. The package builds, and the Go1 stands in Gazebo on the ground (trunk 0.055 → 0.352 m) and hanging.
 
-**Your module: start from the placeholder.** So the loop runs end to end, each Member 2–6 file now has a simple placeholder under your owner line. Replace the body with your real code. Keep the function name and arguments as they are, because `main.cpp` calls them; if you need a change, tell me. Nothing was overwritten: these files held only the owner note.
+**Your module: start from the placeholder.** So the loop runs end to end, each Member 2–6 file now has a simple placeholder under your owner line. Replace the body with your real code. Keep the function name and arguments as they are, because `main.cpp` calls them. Nothing was overwritten: these files held only the owner note.
 
 ```bash
 catkin_make && source devel/setup.bash
@@ -39,7 +39,7 @@ The loop calls the modules once per cycle, in this order. The shared structs are
 | 4 | Member 5 | `StanceController::compute(s, g, cmd, out)` | Stiff joint PD on the stand pose |
 | 5 | Member 6 | `TransitionBlender::blend(g, contact, swing, stance, out)` | Hard switch on scheduled contact |
 
-Member 2: `kinematics.*` and Member 4: `foot_planner.*` are not called yet and are already in the build. Member 7: tell me what data you need for the plots and I'll publish it.
+Member 2: `kinematics.*` and Member 4: `foot_planner.*` are not called yet and are already in the build.
 
 ## Layout
 
