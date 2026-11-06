@@ -1,5 +1,6 @@
 #pragma once
-// OWNER: Member 4 (Tianyu Cheng). PLACEHOLDER written by Member 1 so the loop runs.
+// Owner: Member 4. Swing leg trajectory, position tracking and impedance feedforward.
+// PLACEHOLDER (by Godfred) so the whole loop builds and runs.
 // Proposed interface, confirm at the freeze meeting. Replace the body in src/swing_controller.cpp.
 #include "go1_ctrl/types.h"
 

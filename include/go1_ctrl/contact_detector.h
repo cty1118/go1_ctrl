@@ -1,5 +1,6 @@
 #pragma once
-// OWNER: Member 6. PLACEHOLDER written by Member 1 so the loop runs.
+// Owner: Member 6. Contact detection from foot force with hysteresis.
+// PLACEHOLDER (by Godfred) so the whole loop builds and runs.
 // Proposed interface, confirm at the freeze meeting. Replace the body in src/contact_detector.cpp.
 #include <array>
 #include "go1_ctrl/types.h"

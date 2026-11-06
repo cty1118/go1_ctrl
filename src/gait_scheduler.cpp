@@ -1,4 +1,5 @@
-// OWNER: Member 3. PLACEHOLDER: every gait runs as a slow trot. Replace with the real scheduler.
+// Owner: Member 3. Gait scheduler.
+// PLACEHOLDER (by Godfred): every gait runs as a slow trot. Replace with the real scheduler.
 #include "go1_ctrl/gait_scheduler.h"
 
 #include <cmath>

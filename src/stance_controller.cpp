@@ -1,4 +1,5 @@
-// OWNER: Member 5. PLACEHOLDER: stiff joint PD on the standing pose (no impedance yet).
+// Owner: Member 5. Stance leg impedance control.
+// PLACEHOLDER (by Godfred): stiff joint PD on the standing pose (no impedance yet).
 // Replace with F = K(p_ref - p) + D(v_ref - v) + F_ff and tau = J^T F.
 #include "go1_ctrl/stance_controller.h"
 

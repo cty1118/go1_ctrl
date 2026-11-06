@@ -1,4 +1,5 @@
-// OWNER: Member 6. PLACEHOLDER: hard switch on the scheduled contact. Replace with the ramped blend.
+// Owner: Member 6. Transition blending.
+// PLACEHOLDER (by Godfred): hard switch on the scheduled contact. Replace with the ramped blend.
 #include "go1_ctrl/transition_blender.h"
 
 namespace go1 {

@@ -1,4 +1,5 @@
-// OWNER: Member 4. PLACEHOLDER: joint-space lift around the standing pose (no kinematics).
+// Owner: Member 4. Swing leg control.
+// PLACEHOLDER (by Godfred): joint-space lift around the standing pose (no kinematics).
 // Replace with the Bezier/cycloid swing + IK + Cartesian impedance.
 #include "go1_ctrl/swing_controller.h"
 

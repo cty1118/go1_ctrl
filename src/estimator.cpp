@@ -1,4 +1,5 @@
-// OWNER: Member 2. PLACEHOLDER: uses Gazebo ground truth as-is. Replace with the real estimator.
+// Owner: Member 2. State estimator.
+// PLACEHOLDER (by Godfred): uses Gazebo ground truth as-is. Replace with the real estimator.
 #include "go1_ctrl/estimator.h"
 
 namespace go1 {

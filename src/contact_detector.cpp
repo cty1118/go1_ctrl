@@ -1,4 +1,5 @@
-// OWNER: Member 6. PLACEHOLDER: plain threshold. Replace with hysteresis + debouncing.
+// Owner: Member 6. Contact detection.
+// PLACEHOLDER (by Godfred): plain threshold. Replace with hysteresis + debouncing.
 #include "go1_ctrl/contact_detector.h"
 
 namespace go1 {
