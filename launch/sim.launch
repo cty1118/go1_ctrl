@@ -1,1 +1,29 @@
-<!-- Owner: Member 1. Starts Gazebo and the controller. -->
+<!-- Member 1: Go1 in Gazebo + our controller.
+     roslaunch go1_ctrl sim.launch          then, in a second terminal:  rosrun go1_ctrl keyboard -->
+<launch>
+  <arg name="wname" default="earth"/>
+  <arg name="gui"   default="true"/>
+  <arg name="paused" default="false"/>
+  <arg name="hang"  default="false"/>  <!-- true = robot hangs in the air (rig test) -->
+
+  <param name="/use_sim_time" value="true"/>
+
+  <!-- Silences a harmless unitree_legged_control warning that otherwise floods gzserver's log
+       and slows the simulation down ~6x (see config/rosconsole.conf). -->
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find go1_ctrl)/config/rosconsole.conf"/>
+
+  <!-- unitree_ros: world, Go1 model, joint controllers, foot contact plugin -->
+  <include file="$(find unitree_gazebo)/launch/normal.launch">
+    <arg name="rname"  value="go1"/>
+    <arg name="wname"  value="$(arg wname)"/>
+    <arg name="gui"    value="$(arg gui)"/>
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="user_debug" value="$(arg hang)"/>
+  </include>
+
+  <node pkg="go1_ctrl" type="go1_ctrl_node" name="go1_ctrl" output="screen">
+    <param name="io" value="sim"/>
+    <param name="robot_name" value="go1"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/fsm.yaml"/>
+  </node>
+</launch>
