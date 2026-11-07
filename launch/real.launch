@@ -1,1 +1,18 @@
-<!-- Owner: Member 1 with Member 6. Starts the controller on the real robot. -->
+<!-- Member 1: our controller on the physical Go1 (low level, via unitree_legged_sdk).
+     Hang the robot on the rig first. Control PC must be 192.168.123.162.
+     Build with SDK:  catkin_make -DUNITREE_SDK_PATH=$HOME/unitree_legged_sdk
+     roslaunch go1_ctrl real.launch         then:  rosrun go1_ctrl keyboard -->
+<launch>
+  <arg name="power_protect" default="1"/>  <!-- 1..10, motor power cap = level * 10 % -->
+
+  <param name="/use_sim_time" value="false"/>
+
+  <node pkg="go1_ctrl" type="go1_ctrl_node" name="go1_ctrl" output="screen">
+    <param name="io" value="real"/>
+    <param name="power_protect" value="$(arg power_protect)"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/fsm.yaml"/>
+    <param name="check_height" value="false"/>  <!-- no ground truth on the real robot -->
+    <param name="stand_kp" value="60.0"/>       <!-- softer on hardware for the first rig tests -->
+    <param name="stand_kd" value="5.0"/>
+  </node>
+</launch>

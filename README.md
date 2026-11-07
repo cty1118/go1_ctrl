@@ -14,9 +14,32 @@ cd ~/unitree_ws && catkin_make && source devel/setup.bash
 
 `unitree_ros` and `unitree_legged_msgs` must already be in `~/unitree_ws/src` (they are in the Part 1 VM).
 
-## Status
+## Status (Nov 6, 2026)
 
-This repository only contains the directory structure. Every file holds a one-line note naming its owner; the owner writes its contents. `package.xml` and `CMakeLists.txt` are kept minimal so `catkin_make` still succeeds for the whole workspace.
+**Framework: done (Godfred).** The IO for Gazebo and the real robot, the state machine (Passive / Stand / Gait), the main loop, keyboard control, launch files and the build are in. The package builds, and the Go1 stands in Gazebo on the ground (trunk 0.055 → 0.352 m) and hanging.
+
+**Your module: start from the placeholder.** So the loop runs end to end, each Member 2–6 file now has a simple placeholder under your owner line. Replace the body with your real code. Keep the function name and arguments as they are, because `main.cpp` calls them. Nothing was overwritten: these files held only the owner note.
+
+```bash
+catkin_make && source devel/setup.bash
+roslaunch go1_ctrl sim.launch      # hang:=true = robot hangs in the air (rig test)
+rosrun go1_ctrl keyboard           # 1 passive, 2 stand, 3-6 walk/trot/canter/gallop, space stop
+```
+
+If Gazebo gets stuck at sim time 0.35 s on startup, restart it.
+
+The loop calls the modules once per cycle, in this order. The shared structs are in `types.h`.
+
+| Order | Owner | Function the loop calls | Placeholder does now |
+| --- | --- | --- | --- |
+| 1 | Member 6 | `ContactDetector::update(s)` → 4 contact flags | Plain force threshold |
+| 2 | Member 2 | `Estimator::update(s, contact)` → fills `s.pos`, `s.vel` | Uses Gazebo ground truth |
+| 3 | Member 3 | `GaitScheduler::start(gait, t)`, `update(t)` → `GaitState` | Every gait is a slow trot |
+| 4 | Member 4 | `SwingController::compute(s, g, cmd, out)` | Joint-space lift, no kinematics |
+| 4 | Member 5 | `StanceController::compute(s, g, cmd, out)` | Stiff joint PD on the stand pose |
+| 5 | Member 6 | `TransitionBlender::blend(g, contact, swing, stance, out)` | Hard switch on scheduled contact |
+
+Member 2: `kinematics.*` and Member 4: `foot_planner.*` are not called yet and are already in the build.
 
 ## Layout
 
