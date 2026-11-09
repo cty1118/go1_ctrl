@@ -1,1 +1,21 @@
-# Owners: Member 3 (walk, trot) and Member 4 (canter, gallop). Gait parameters.
+# Leg order: FR, FL, RR, RL. Offsets are TOUCHDOWN phases (subtracted).
+# Initial development values, NOT hardware-tuned.
+gaits:
+  transition_time: 0.6
+  ground_walk: true
+  walk:
+    period: 1.6
+    offset: [0.0, 0.5, 0.75, 0.25]
+    duty: [0.8, 0.8, 0.8, 0.8]
+  trot:
+    period: 0.6
+    offset: [0.0, 0.5, 0.5, 0.0]
+    duty: [0.6, 0.6, 0.6, 0.6]
+  canter:
+    period: 0.8
+    offset: [0.3, 0.6, 0.3, 0.0]
+    duty: [0.35, 0.35, 0.35, 0.35]
+  gallop:
+    period: 0.7
+    offset: [0.5, 0.65, 0.0, 0.15]
+    duty: [0.3, 0.3, 0.3, 0.3]
