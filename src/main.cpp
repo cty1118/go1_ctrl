@@ -19,6 +19,7 @@
 #include <geometry_msgs/Twist.h>
 #include <ros/ros.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/String.h>
 
 #include "go1_ctrl/contact_detector.h"
@@ -115,7 +116,7 @@ int main(int argc, char** argv) {
         in.last_vel = ros::Time::now();
       });
   ros::Publisher mode_pub = nh.advertise<std_msgs::String>("go1_ctrl/mode", 1, true);
-
+  ros::Publisher swing_debug_pub = nh.advertise<std_msgs::Float64MultiArray>("go1_ctrl/swing_debug", 10);
   // ---- wait for the first sensor data (Gazebo may still be loading) ----
   ROS_INFO("[main] waiting for sensor data (io=%s) ...", io_type.c_str());
   ros::Rate wait(50);
@@ -177,6 +178,25 @@ int main(int argc, char** argv) {
         const GaitState g = scheduler.update(s.t);
         // 4a/4b. swing and stance commands
         swing.compute(s, g, body, cmd_swing);
+        // Member 7: Publish swing foot tracking data.
+        // Leg order: FR, FL, RR, RL.
+        // Each leg: p_des_x, p_des_y, p_des_z, p_x, p_y, p_z.
+        std_msgs::Float64MultiArray debug_msg;
+        debug_msg.data.reserve(24);
+
+        for (int leg = 0; leg < kNumLegs; ++leg) {
+          const auto& target = swing.lastTarget(leg);
+          const auto& measured = swing.lastMeasured(leg);
+
+          for (int axis = 0; axis < 3; ++axis) {
+            debug_msg.data.push_back(target.p(axis));
+          }
+          for (int axis = 0; axis < 3; ++axis) {
+            debug_msg.data.push_back(measured.p(axis));
+          }
+        }
+
+        swing_debug_pub.publish(debug_msg);
         stance.compute(s, g, body, cmd_stance);
         // 5. blend at touchdown / liftoff
         blender.blend(g, contact, cmd_swing, cmd_stance, cmd);
