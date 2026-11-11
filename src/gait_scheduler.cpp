@@ -1,5 +1,4 @@
 // Owner: Member 3. Gait scheduler.
-// PLACEHOLDER (by Godfred): every gait runs as a slow trot. Replace with the real scheduler.
 
 #include "go1_ctrl/gait_scheduler.h"
 
@@ -35,8 +34,8 @@ GaitParameters GaitScheduler::defaults(GaitType g) {
   switch(g) {
     case GaitType::WALK: return {1.6, {{0,.5,.75,.25}}, {{.8,.8,.8,.8}}};
     case GaitType::TROT: return {.6, {{0,.5,.5,0}}, {{.6,.6,.6,.6}}};
-    case GaitType::CANTER: return {.8, {{.3,.6,.3,0}}, {{.35,.35,.35,.35}}};
-    case GaitType::GALLOP: return {.7, {{.5,.65,0,.15}}, {{.3,.3,.3,.3}}};
+    case GaitType::CANTER: return {.8, {{.6,.3,.3,0}}, {{.50,.50,.50,.50}}};
+    case GaitType::GALLOP: return {.7, {{.5,.65,0,.15}}, {{.45,.45,.45,.45}}};
   }
   
   throw std::invalid_argument("invalid gait");
