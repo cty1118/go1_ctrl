@@ -8,11 +8,6 @@ if len(sys.argv) != 2:
 
 bag_path = sys.argv[1]
 
-import rosbag
-import numpy as np
-import matplotlib.pyplot as plt
-
-bag_path = "/home/md/go1_experiments/swing_mode3_trial01.bag"
 
 times = []
 desired = {leg: [] for leg in range(4)}
