@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
       });
   ros::Publisher mode_pub = nh.advertise<std_msgs::String>("go1_ctrl/mode", 1, true);
   ros::Publisher swing_debug_pub = nh.advertise<std_msgs::Float64MultiArray>("go1_ctrl/swing_debug", 10);
+ros::Publisher gait_debug_pub = nh.advertise<std_msgs::Float64MultiArray>("go1_ctrl/gait_debug", 10);
   // ---- wait for the first sensor data (Gazebo may still be loading) ----
   ROS_INFO("[main] waiting for sensor data (io=%s) ...", io_type.c_str());
   ros::Rate wait(50);
@@ -159,6 +160,10 @@ int main(int argc, char** argv) {
     // safety on the measured state
     const std::string fault = safety.checkState(s, fsm.mode());
     if (!fault.empty()) fsm.forcePassive(fault);
+// Member 7: Preserve gait data for post-safety debugging.
+GaitState debug_gait;
+std::array<bool, kNumLegs> debug_contact{};
+bool debug_gait_valid = false;
 
     switch (fsm.mode()) {
       case Mode::PASSIVE:
@@ -176,6 +181,9 @@ int main(int argc, char** argv) {
         estimator.update(s, contact);
         // 3. gait schedule
         const GaitState g = scheduler.update(s.t);
+debug_gait = g;
+debug_contact = contact;
+debug_gait_valid = true;
         // 4a/4b. swing and stance commands
         swing.compute(s, g, body, cmd_swing);
         // Member 7: Publish swing foot tracking data.
@@ -210,6 +218,31 @@ int main(int argc, char** argv) {
       fsm.passiveCommand(cmd);
     }
     if (fsm.mode() != Mode::PASSIVE) safety.limit(s, cmd);
+    // Member 7: Publish gait phase, contact, force, and torque data.
+    // Leg order: FR, FL, RR, RL.
+    // Per leg: phase, scheduled_contact, detected_contact,
+    // foot_force, commanded_tau[3], estimated_tau[3].
+    if (debug_gait_valid && fsm.mode() == Mode::GAIT) {
+      std_msgs::Float64MultiArray gait_msg;
+      gait_msg.data.reserve(40);
+    
+      for (int leg = 0; leg < kNumLegs; ++leg) {
+        gait_msg.data.push_back(debug_gait.leg[leg].phase);
+        gait_msg.data.push_back(debug_gait.leg[leg].contact ? 1.0 : 0.0);
+        gait_msg.data.push_back(debug_contact[leg] ? 1.0 : 0.0);
+        gait_msg.data.push_back(s.foot_force(leg));
+    
+        for (int joint = 0; joint < kJointsPerLeg; ++joint) {
+          gait_msg.data.push_back(cmd.leg[leg].tau(joint));
+        }
+    
+        for (int joint = 0; joint < kJointsPerLeg; ++joint) {
+          gait_msg.data.push_back(s.tau(jointIndex(leg, joint)));
+        }
+      }
+    
+      gait_debug_pub.publish(gait_msg);
+    }
 
     // 6. write motor commands
     io->write(cmd);
