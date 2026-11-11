@@ -1,1 +1,24 @@
-# Owner: Member 2. Go1 leg geometry.
+# Owner: Member 2. Geometry 
+# Used by defaultGo1Geometry() and Estimator.
+# Body frame B: +x forward, +y left, +z up; meters.
+# leg order: FR, FL, RR, RL. Joint order: HAA, HFE, KFE.
+# MEMBER 1 NEEDS TO WIRE THIS INTO main.cpp
+# Defaults are currently built into defaultGo1Geometry() / EstimatorParams.
+hip_x: 0.1881
+hip_y: 0.04675
+hip_z: 0.0
+thigh_length: 0.213
+calf_length: 0.213
+lateral_offset: 0.080 # + for left; - for right
+
+# Optional estimator tuning; constructor defaults apply unless explicitly loaded.
+estimator:
+  gravity: 9.81
+  max_dt: 0.05
+  min_contact_time: 0.008
+  position_time_constant: 0.06
+  velocity_time_constant: 0.025
+  slip_threshold: 0.12
+  max_imu_acceleration: 50.0
+  max_contact_speed: 5.0
+  use_ground_truth: false
