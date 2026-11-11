@@ -1,20 +1,26 @@
 # Owners: Member 3 (walk, trot) and Member 4 (canter, gallop). Gait parameters.
-#
-# Leg order: FR, FL, RR, RL. offset = phase offset as a fraction of the period,
-# duty = fraction of the period the leg is in contact.
-# The key names are Member 4's proposal; align them with Member 3's scheduler.
-
-# ---- Member 4: Canter and Gallop (first trial: no flight phase yet) ----
-# Canter, 3-beat: RL, then the diagonal pair RR + FL together, then FR (lead leg).
-canter:
-  period: 0.45
-  offset: [0.66, 0.33, 0.33, 0.0]
-  duty: [0.5, 0.5, 0.5, 0.5]
-  step_height: 0.08
-
-# Transverse gallop, 4-beat: RL, RR, FL, FR.
-gallop:
-  period: 0.35
-  offset: [0.6, 0.5, 0.1, 0.0]
-  duty: [0.45, 0.45, 0.45, 0.45]
-  step_height: 0.06
+# Leg order: FR, FL, RR, RL. Offsets are TOUCHDOWN phases (subtracted).
+# Initial development values, NOT hardware-tuned.
+gaits:
+  transition_time: 0.6
+  ground_walk: true
+  walk:
+    period: 1.6
+    offset: [0.0, 0.5, 0.75, 0.25]
+    duty: [0.8, 0.8, 0.8, 0.8]
+  trot:
+    period: 0.6
+    offset: [0.0, 0.5, 0.5, 0.0]
+    duty: [0.6, 0.6, 0.6, 0.6]
+  # ---- Member 4: canter and gallop ----
+  # TODO(Member 4 + 3): check canter offsets. The middle beat of a canter should be
+  # a diagonal pair (RR + FL), e.g. [0.6, 0.3, 0.3, 0.0]. First trials without a
+  # flight phase (duty about 0.45-0.5) until the stance controller is ready.
+  canter:
+    period: 0.8
+    offset: [0.3, 0.6, 0.3, 0.0]
+    duty: [0.35, 0.35, 0.35, 0.35]
+  gallop:
+    period: 0.7
+    offset: [0.5, 0.65, 0.0, 0.15]
+    duty: [0.3, 0.3, 0.3, 0.3]
