@@ -3,6 +3,7 @@
 // main.cpp calls compute(): keep its signature (see the README).
 #include <array>
 #include "go1_ctrl/foot_planner.h"
+#include "go1_ctrl/kinematics.h"
 #include "go1_ctrl/types.h"
 
 namespace go1 {
@@ -40,46 +41,49 @@ struct SwingTarget {
 SwingTarget cycloidSwing(const Vec3& p0, const Vec3& pf, double height, double s,
                          double t_swing, const Vec3& pf_rate = Vec3::Zero());
 
-// TEMPORARY leg kinematics so the swing leg runs before Member 2's kinematics.h
-// exists. Replace these calls with Member 2's functions when they land.
-// fk/ik/jacobian work on the foot position relative to the hip joint, in body axes.
-namespace swing_kin {
-Vec3 hipOffset(int leg);    // hip joint position in the body frame
-Vec3 nominalFoot(int leg);  // neutral foot position under the hip, body frame (z = 0)
-Vec3 fk(int leg, const Vec3& q);
-Mat3 jacobian(int leg, const Vec3& q);
-Vec3 ik(int leg, const Vec3& p);
-}  // namespace swing_kin
+// Neutral foot position under the hip, body frame (z = 0): the hip joint
+// position plus the hip-to-thigh offset along y.
+Vec3 nominalFoot(const LegGeometry& g);
 
+// Leg kinematics (FK, IK, Jacobian) come from Member 2's Kinematics class.
 class SwingController {
  public:
+  // Uses defaultGo1Geometry() (Member 2, estimator.h).
   explicit SwingController(const SwingParams& params = SwingParams());
+  SwingController(const SwingParams& params, const std::array<LegGeometry, kNumLegs>& geometry);
 
   void setParams(const SwingParams& params) { params_ = params; }
   const SwingParams& params() const { return params_; }
   FootPlanner& planner() { return planner_; }
+  const Kinematics& kinematics() const { return kin_; }
 
   // Command for every leg as if it were swinging; the blender picks per leg.
   //   q_des  = IK(p_des),  dq_des = J^-1 v_des   (tracked with joint Kp, Kd)
   //   tau_ff = J^T [Kp (p_des - p) + Kd (v_des - v)]
   // Legs scheduled in contact get a hold-in-place command.
+  // If IK has no solution inside the joint limits, the last valid q_des is kept.
   void compute(const RobotState& s, const GaitState& g, const BodyCmd& cmd, RobotCommand& out);
 
   // Last target, measured foot state and foothold of a leg (body frame), for the debug topic.
   const SwingTarget& lastTarget(int leg) const { return target_[leg]; }
   const SwingTarget& lastMeasured(int leg) const { return measured_[leg]; }
   const Vec3& lastFoothold(int leg) const { return foothold_[leg]; }
+  long ikFailures() const { return ik_failures_; }  // IK calls that returned false
 
  private:
   SwingParams params_;
+  std::array<LegGeometry, kNumLegs> geometry_;
+  Kinematics kin_;
   FootPlanner planner_;
   double t_prev_;  // time of the previous compute() call
+  long ik_failures_;
 
   std::array<bool, kNumLegs> swinging_;
   std::array<double, kNumLegs> last_progress_;
   std::array<double, kNumLegs> last_t_;
   std::array<double, kNumLegs> progress_rate_;  // d(swing_progress)/dt = 1 / T_swing
   std::array<Vec3, kNumLegs> p_liftoff_;
+  std::array<Vec3, kNumLegs> q_des_;  // last valid IK solution of each leg
   std::array<SwingTarget, kNumLegs> target_;
   std::array<SwingTarget, kNumLegs> measured_;
   std::array<Vec3, kNumLegs> foothold_;
