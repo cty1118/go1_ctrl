@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "go1_ctrl/estimator.h"  // defaultGo1Geometry() (Member 2)
+
 namespace go1 {
 
 SwingTarget cycloidSwing(const Vec3& p0, const Vec3& pf, double height, double s,
@@ -25,74 +27,22 @@ SwingTarget cycloidSwing(const Vec3& p0, const Vec3& pf, double height, double s
   return target;
 }
 
-// ---- TEMPORARY leg kinematics (until Member 2's kinematics.h) ----
-// Go1 URDF: hip joints at (+-0.1881, +-0.04675, 0), hip-to-thigh offset 0.08,
-// thigh and calf 0.213 m. Right legs (FR, RR) have the thigh offset on -y.
-namespace swing_kin {
-namespace {
-constexpr double kHipX = 0.1881;
-constexpr double kHipY = 0.04675;
-constexpr double kAbad = 0.08;
-constexpr double kThigh = 0.213;
-constexpr double kCalf = 0.213;
-
-double sideSign(int leg) { return (leg == FR || leg == RR) ? -1.0 : 1.0; }
-}  // namespace
-
-Vec3 hipOffset(int leg) {
-  const double sx = (leg == FR || leg == FL) ? 1.0 : -1.0;
-  return Vec3(sx * kHipX, sideSign(leg) * kHipY, 0.0);
+Vec3 nominalFoot(const LegGeometry& g) {
+  return Vec3(g.hipPosition_B.x(), g.hipPosition_B.y() + g.lateralOffset, 0.0);
 }
 
-Vec3 nominalFoot(int leg) { return hipOffset(leg) + Vec3(0.0, sideSign(leg) * kAbad, 0.0); }
+SwingController::SwingController(const SwingParams& params)
+    : SwingController(params, defaultGo1Geometry()) {}
 
-Vec3 fk(int leg, const Vec3& q) {
-  const double l1 = sideSign(leg) * kAbad, l2 = -kThigh, l3 = -kCalf;
-  const double s1 = std::sin(q[0]), c1 = std::cos(q[0]);
-  const double s2 = std::sin(q[1]), c2 = std::cos(q[1]);
-  const double s23 = std::sin(q[1] + q[2]), c23 = std::cos(q[1] + q[2]);
-  return Vec3(l3 * s23 + l2 * s2,
-              -l3 * s1 * c23 + l1 * c1 - l2 * c2 * s1,
-              l3 * c1 * c23 + l1 * s1 + l2 * c1 * c2);
-}
-
-Mat3 jacobian(int leg, const Vec3& q) {
-  const double l1 = sideSign(leg) * kAbad, l2 = -kThigh, l3 = -kCalf;
-  const double s1 = std::sin(q[0]), c1 = std::cos(q[0]);
-  const double s2 = std::sin(q[1]), c2 = std::cos(q[1]);
-  const double s23 = std::sin(q[1] + q[2]), c23 = std::cos(q[1] + q[2]);
-  Mat3 J;
-  J << 0.0, l3 * c23 + l2 * c2, l3 * c23,
-      -l3 * c1 * c23 - l2 * c1 * c2 - l1 * s1, l3 * s1 * s23 + l2 * s1 * s2, l3 * s1 * s23,
-      -l3 * s1 * c23 + l1 * c1 - l2 * c2 * s1, -l3 * c1 * s23 - l2 * c1 * s2, -l3 * c1 * s23;
-  return J;
-}
-
-Vec3 ik(int leg, const Vec3& p) {
-  const double l1 = sideSign(leg) * kAbad;
-  const double a = kThigh, b = kCalf;
-
-  // Hip: [py, pz] is [l1, zp] rotated about x by q1, zp = -(leg length in the leg plane).
-  const double zp = -std::sqrt(std::max(p.y() * p.y() + p.z() * p.z() - l1 * l1, 1e-9));
-  const double q1 = std::atan2(p.z(), p.y()) - std::atan2(zp, l1);
-
-  // Knee: law of cosines in the leg plane, knee bent backwards (q3 < 0).
-  const double c3 = (p.x() * p.x() + zp * zp - a * a - b * b) / (2.0 * a * b);
-  const double q3 = -std::acos(std::max(-1.0, std::min(1.0, c3)));
-
-  // Thigh: (-x, -zp) = (k1 s2 + k2 c2, k1 c2 - k2 s2).
-  const double k1 = a + b * std::cos(q3), k2 = b * std::sin(q3);
-  const double q2 = std::atan2(-p.x(), -zp) - std::atan2(k2, k1);
-  return Vec3(q1, q2, q3);
-}
-}  // namespace swing_kin
-
-SwingController::SwingController(const SwingParams& params) : params_(params), t_prev_(0.0) {
+SwingController::SwingController(const SwingParams& params,
+                                 const std::array<LegGeometry, kNumLegs>& geometry)
+    : params_(params), geometry_(geometry), kin_(geometry), t_prev_(0.0), ik_failures_(0) {
   swinging_.fill(false);
   last_progress_.fill(0.0);
   last_t_.fill(0.0);
   progress_rate_.fill(0.0);
   p_liftoff_.fill(Vec3::Zero());
+  q_des_.fill(Vec3::Zero());
   target_.fill(SwingTarget());
   measured_.fill(SwingTarget());
   foothold_.fill(Vec3::Zero());
@@ -110,16 +60,26 @@ void SwingController::compute(const RobotState& s, const GaitState& g, const Bod
     const LegGait& lg = g.leg[leg];
     const Vec3 q = s.legQ(leg);
     const Vec3 dq = s.legDq(leg);
-    const Vec3 hip = swing_kin::hipOffset(leg);
-    const Mat3 J = swing_kin::jacobian(leg, q);
-    const Vec3 p = hip + swing_kin::fk(leg, q);
-    const Vec3 v = J * dq;
-    measured_[leg].p = p;
-    measured_[leg].v = v;
-
     LegCommand& l = out.leg[leg];
     l.kp = params_.joint_kp;
     l.kd = params_.joint_kd;
+
+    // Kinematics throws on non-finite angles. Pass them through instead, so that
+    // main.cpp's isFinite() check sends the robot to PASSIVE.
+    if (!q.allFinite() || !dq.allFinite()) {
+      swinging_[leg] = false;
+      l.q = q;
+      l.dq = dq;
+      l.tau.setZero();
+      continue;
+    }
+
+    // Measured foot state in the body frame (FK already includes the hip offset).
+    const Mat3 J = kin_.jacobian(leg, q);
+    const Vec3 p = kin_.forwardKinematics(leg, q);
+    const Vec3 v = J * dq;
+    measured_[leg].p = p;
+    measured_[leg].v = v;
 
     if (lg.contact) {
       // Stance leg: hold in place. The blender normally uses the stance command here.
@@ -139,6 +99,7 @@ void SwingController::compute(const RobotState& s, const GaitState& g, const Bod
     const double dt_leg = s.t - last_t_[leg];
     if (new_swing) {
       p_liftoff_[leg] = p;
+      q_des_[leg] = q;
     } else if (sp > last_progress_[leg] && dt_leg > 0.0) {
       progress_rate_[leg] = (sp - last_progress_[leg]) / dt_leg;
     }
@@ -154,7 +115,7 @@ void SwingController::compute(const RobotState& s, const GaitState& g, const Bod
 
     // Foothold on the ground at the liftoff height, then the cycloid towards it.
     const Vec3 foothold_prev = foothold_[leg];
-    foothold_[leg] = planner_.update(leg, sp, swing_kin::nominalFoot(leg), v_body, cmd.vel,
+    foothold_[leg] = planner_.update(leg, sp, nominalFoot(geometry_[leg]), v_body, cmd.vel,
                                      t_stance, p_liftoff_[leg].z(), s.gyro.z(), cmd.yaw_rate);
     Vec3 foothold_rate = Vec3::Zero();
     if (!new_swing && dt_leg > 0.0) foothold_rate = (foothold_[leg] - foothold_prev) / dt_leg;
@@ -162,10 +123,18 @@ void SwingController::compute(const RobotState& s, const GaitState& g, const Bod
                                             sp, t_swing, foothold_rate);
     target_[leg] = target;
 
-    // Joint targets. Damped least squares instead of a plain inverse:
-    // dq = (J^T J + l^2 I)^-1 J^T v.
+    // Joint targets. IK picks the solution closest to the last q_des (smooth, same
+    // knee branch). If the target is unreachable or outside the joint limits, IK
+    // returns false and leaves q_des_ unchanged, so the leg holds its last valid pose.
+    Vec3 q_ik = q_des_[leg];
+    if (kin_.inverseKinematics(leg, target.p, q_des_[leg], q_ik)) {
+      q_des_[leg] = q_ik;
+    } else {
+      ++ik_failures_;
+    }
+    l.q = q_des_[leg];
+    // Damped least squares instead of a plain inverse: dq = (J^T J + l^2 I)^-1 J^T v.
     const Mat3 JtJ = J.transpose() * J + l2 * Mat3::Identity();
-    l.q = swing_kin::ik(leg, target.p - hip);
     l.dq = JtJ.ldlt().solve(J.transpose() * target.v);
 
     // Cartesian impedance feedforward.
