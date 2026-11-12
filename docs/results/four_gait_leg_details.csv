@@ -1,0 +1,17 @@
+gait,leg,measured_stance_percent,phase_offset_relative_FR
+Walk,FR,80.02,0.0
+Walk,FL,79.98,0.5
+Walk,RR,79.94,0.75
+Walk,RL,80.03,0.25
+Trot,FR,60.04,0.0
+Trot,FL,60.02,0.5
+Trot,RR,60.02,0.5
+Trot,RL,60.04,0.0
+Canter,FR,50.01,0.0
+Canter,FL,50.04,0.7
+Canter,RR,50.04,0.7
+Canter,RL,49.93,0.4
+Gallop,FR,44.94,0.0
+Gallop,FL,45.04,0.15
+Gallop,RR,44.94,0.5
+Gallop,RL,45.01,0.65
