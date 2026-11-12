@@ -2,6 +2,7 @@
 #include "go1_ctrl/types.h"
 #include <array>
 
+
 namespace go1 {
 struct GaitParameters {
   double period;
