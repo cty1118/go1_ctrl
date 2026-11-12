@@ -1,0 +1,5 @@
+gait,expected_period_s,measured_period_s,period_std_s,expected_stance_percent,measured_stance_percent,complete_cycles,valid_samples
+Walk,1.6,1.6,0.0006,80.0,80.0,5,4611
+Trot,0.6,0.6,0.0005,60.0,60.03,17,5393
+Canter,0.8,0.8001,0.0004,50.0,50.01,11,4887
+Gallop,0.7,0.7,0.0008,45.0,44.98,13,5073
