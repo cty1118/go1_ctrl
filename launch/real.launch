@@ -4,13 +4,17 @@
      roslaunch go1_ctrl real.launch         then:  rosrun go1_ctrl keyboard -->
 <launch>
   <arg name="power_protect" default="1"/>  <!-- 1..10, motor power cap = level * 10 % -->
+  <arg name="hang" default="true"/>         <!-- true while on the rig: Walk skips the support check -->
 
   <param name="/use_sim_time" value="false"/>
 
   <node pkg="go1_ctrl" type="go1_ctrl_node" name="go1_ctrl" output="screen">
     <param name="io" value="real"/>
     <param name="power_protect" value="$(arg power_protect)"/>
+    <param name="hang" value="$(arg hang)"/>
     <rosparam command="load" file="$(find go1_ctrl)/config/fsm.yaml"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/robot.yaml"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/gaits.yaml"/>
     <param name="check_height" value="false"/>  <!-- no ground truth on the real robot -->
     <param name="stand_kp" value="60.0"/>       <!-- softer on hardware for the first rig tests -->
     <param name="stand_kd" value="5.0"/>
