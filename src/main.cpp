@@ -51,13 +51,106 @@ struct Inputs {
   ros::Time last_vel;
 };
 
+// Leg geometry from config/robot.yaml (Member 2). Missing keys keep defaultGo1Geometry().
+std::array<LegGeometry, kNumLegs> loadGeometry(ros::NodeHandle& pnh) {
+  std::array<LegGeometry, kNumLegs> g = defaultGo1Geometry();
+  double hx = g[FL].hipPosition_B.x(), hy = g[FL].hipPosition_B.y(), hz = g[FL].hipPosition_B.z();
+  double thigh = g[FL].thighLength, calf = g[FL].calfLength, lat = g[FL].lateralOffset;
+  pnh.param("hip_x", hx, hx);
+  pnh.param("hip_y", hy, hy);
+  pnh.param("hip_z", hz, hz);
+  pnh.param("thigh_length", thigh, thigh);
+  pnh.param("calf_length", calf, calf);
+  pnh.param("lateral_offset", lat, lat);
+  for (int leg = 0; leg < kNumLegs; ++leg) {
+    const bool front = (leg == FR || leg == FL);
+    const bool left = (leg == FL || leg == RL);
+    g[leg].hipPosition_B = Vec3(front ? hx : -hx, left ? hy : -hy, hz);
+    g[leg].lateralOffset = left ? std::abs(lat) : -std::abs(lat);
+    g[leg].thighLength = thigh;
+    g[leg].calfLength = calf;
+  }
+  return g;
+}
+
+// Estimator tuning from the estimator: block of config/robot.yaml.
+EstimatorParams loadEstimatorParams(ros::NodeHandle& pnh) {
+  EstimatorParams p;
+  pnh.param("estimator/gravity", p.gravity, p.gravity);
+  pnh.param("estimator/max_dt", p.maxDt, p.maxDt);
+  pnh.param("estimator/min_contact_time", p.minContactTime, p.minContactTime);
+  pnh.param("estimator/position_time_constant", p.positionTimeConstant, p.positionTimeConstant);
+  pnh.param("estimator/velocity_time_constant", p.velocityTimeConstant, p.velocityTimeConstant);
+  pnh.param("estimator/slip_threshold", p.slipThreshold, p.slipThreshold);
+  pnh.param("estimator/max_imu_acceleration", p.maxImuAcceleration, p.maxImuAcceleration);
+  pnh.param("estimator/max_contact_speed", p.maxContactSpeed, p.maxContactSpeed);
+  pnh.param("estimator/use_ground_truth", p.useGroundTruth, p.useGroundTruth);
+  return p;
+}
+
+// Gait table from config/gaits.yaml (Members 3 and 4). Must run before the first start().
+void configureScheduler(ros::NodeHandle& pnh, GaitScheduler& scheduler) {
+  const GaitType gaits[] = {GaitType::WALK, GaitType::TROT, GaitType::CANTER, GaitType::GALLOP};
+  for (GaitType gt : gaits) {
+    const std::string key = std::string("gaits/") + gaitName(gt);
+    GaitParameters p = GaitScheduler::defaults(gt);
+    std::vector<double> offset, duty;
+    if (!pnh.hasParam(key)) {
+      ROS_WARN("[main] %s not set, using the built-in %s parameters", key.c_str(), gaitName(gt));
+      continue;
+    }
+    pnh.param(key + "/period", p.period, p.period);
+    if (pnh.getParam(key + "/offset", offset) && offset.size() == 4)
+      for (int i = 0; i < 4; ++i) p.offset[i] = offset[i];
+    if (pnh.getParam(key + "/duty", duty) && duty.size() == 4)
+      for (int i = 0; i < 4; ++i) p.duty[i] = duty[i];
+    try {
+      scheduler.configure(gt, p);
+    } catch (const std::exception& e) {
+      ROS_ERROR("[main] %s rejected (%s), using the built-in parameters", key.c_str(), e.what());
+    }
+  }
+  double transition_time;
+  if (pnh.getParam("gaits/transition_time", transition_time)) {
+    try {
+      scheduler.setTransitionTime(transition_time);
+    } catch (const std::exception& e) {
+      ROS_ERROR("[main] gaits/transition_time rejected (%s)", e.what());
+    }
+  }
+  bool ground_walk = true, hang = false;
+  pnh.param("gaits/ground_walk", ground_walk, ground_walk);
+  pnh.param("hang", hang, hang);
+  if (hang && ground_walk) {
+    ROS_INFO("[main] robot is hanging: Walk runs without the support check");
+    ground_walk = false;  // feet never touch the ground on the rig
+  }
+  scheduler.setGroundWalk(ground_walk);
+}
+
+// Feet, body position and orientation in the world frame for the Walk support check.
+WalkFeedback walkFeedback(const RobotState& s, const Kinematics& kin,
+                          const std::array<bool, kNumLegs>& contact) {
+  WalkFeedback f;
+  const Mat3 R = s.quat.normalized().toRotationMatrix();
+  for (int leg = 0; leg < kNumLegs; ++leg) {
+    const Vec3 q(s.q(jointIndex(leg, 0)), s.q(jointIndex(leg, 1)), s.q(jointIndex(leg, 2)));
+    f.feet[leg] = s.pos + R * kin.forwardKinematics(leg, q);
+  }
+  f.com = s.pos;
+  f.world_R_body = R;
+  f.contact = contact;
+  f.stamp = s.t;
+  return f;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "go1_ctrl");
   ros::NodeHandle nh, pnh("~");
 
-  // ---- parameters (config/fsm.yaml) ----
+  // ---- parameters (config/fsm.yaml; robot.yaml and gaits.yaml are read further down) ----
   std::string io_type;
   double rate_hz, vel_timeout;
   pnh.param<std::string>("io", io_type, "sim");
@@ -98,9 +191,13 @@ int main(int argc, char** argv) {
   // ---- modules ----
   FSM fsm(fp);
   Safety safety(sp);
-  Estimator estimator;
+  const std::array<LegGeometry, kNumLegs> geometry = loadGeometry(pnh);  // config/robot.yaml
+  const Kinematics kin(geometry);
+  Estimator estimator(geometry, loadEstimatorParams(pnh));
   GaitScheduler scheduler;
-  SwingController swing;
+  configureScheduler(pnh, scheduler);  // config/gaits.yaml
+  bool scheduler_running = false;      // false until GAIT is entered (again)
+  SwingController swing(SwingParams(), geometry);
   StanceController stance;
   ContactDetector contact_det;
   TransitionBlender blender;
@@ -165,6 +262,8 @@ GaitState debug_gait;
 std::array<bool, kNumLegs> debug_contact{};
 bool debug_gait_valid = false;
 
+    if (fsm.mode() != Mode::GAIT) scheduler_running = false;  // next GAIT entry restarts it
+
     switch (fsm.mode()) {
       case Mode::PASSIVE:
         fsm.passiveCommand(cmd);
@@ -175,11 +274,23 @@ bool debug_gait_valid = false;
         break;
 
       case Mode::GAIT: {
-        if (fsm.takeGaitChanged()) scheduler.start(fsm.gait(), s.t);
-        // 2. estimate body state (pass-through of ground truth until Member 2 is done)
+        fsm.takeGaitChanged();
+        // 2. estimate body state
         const std::array<bool, kNumLegs> contact = contact_det.update(s);
         estimator.update(s, contact);
-        // 3. gait schedule
+        // 3. gait schedule: start() when GAIT is entered, request() for a smooth
+        //    switch while already walking (the scheduler blends at a cycle boundary)
+        if (!scheduler_running) {
+          scheduler.start(fsm.gait(), s.t);
+          scheduler_running = true;
+        } else if (fsm.gait() != scheduler.activeGait()) {
+          if (scheduler.walkBlocked()) {
+            scheduler.start(fsm.gait(), s.t);  // Walk is holding for support: switch directly
+          } else if (!scheduler.transitioning()) {
+            scheduler.request(fsm.gait());
+          }
+        }
+        scheduler.setWalkFeedback(walkFeedback(s, kin, contact));
         const GaitState g = scheduler.update(s.t);
 debug_gait = g;
 debug_contact = contact;

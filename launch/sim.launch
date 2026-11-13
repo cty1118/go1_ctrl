@@ -24,6 +24,9 @@
   <node pkg="go1_ctrl" type="go1_ctrl_node" name="go1_ctrl" output="screen">
     <param name="io" value="sim"/>
     <param name="robot_name" value="go1"/>
+    <param name="hang" value="$(arg hang)"/>
     <rosparam command="load" file="$(find go1_ctrl)/config/fsm.yaml"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/robot.yaml"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/gaits.yaml"/>
   </node>
 </launch>
