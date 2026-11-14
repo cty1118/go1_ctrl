@@ -1,1 +1,25 @@
 # Owner: Member 5. Stance impedance gains.
+# Load under the controller node (sim.launch, inside the go1_ctrl node):
+#   <rosparam command="load" file="$(find go1_ctrl)/config/stance.yaml" ns="stance"/>
+# Until then the same values are the defaults in stance_controller.h.
+# Starting values for simulation, not tuned yet.
+
+mass: 13.1                 # total robot mass [kg] (go1.urdf)
+gravity: 9.81
+
+# Virtual spring-damper per stance leg, x / y / z (world-aligned axes)
+kp: [300.0, 300.0, 800.0]  # [N/m]
+kd: [30.0, 30.0, 60.0]     # [N s/m]
+
+# Attitude PD (extra vertical force between legs)
+kp_roll: 50.0              # [Nm/rad]
+kd_roll: 3.0               # [Nm s/rad]
+kp_pitch: 80.0             # [Nm/rad]
+kd_pitch: 5.0              # [Nm s/rad]
+
+# Joint command during stance: no position stiffness, light damping (hip, thigh, calf)
+joint_kp: [0.0, 0.0, 0.0]
+joint_kd: [1.0, 1.0, 1.0]
+
+# Stance torque clamp per joint (hip, thigh, calf) [Nm]
+tau_max: [20.0, 20.0, 30.0]
