@@ -21,4 +21,4 @@ estimator:
   slip_threshold: 0.12
   max_imu_acceleration: 50.0
   max_contact_speed: 5.0
-  use_ground_truth: false
+  use_ground_truth: true

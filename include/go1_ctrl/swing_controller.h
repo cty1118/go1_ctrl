@@ -26,6 +26,25 @@ struct SwingParams {
   // Swing duration as a fraction of the period, used only until the swing
   // progress rate has been measured (GaitState carries no duty factor).
   double default_swing_fraction = 0.5;
+
+  // Touchdown height. With level_footholds the foot lands on the ground estimated from
+  // the stance feet in gravity-aligned axes (IMU attitude), so it still reaches the
+  // ground when the body rolls or pitches. Otherwise it lands at its liftoff height
+  // in the body frame (the old behaviour).
+  bool level_footholds = true;
+  double touchdown_depth = 0.01;    // aim this far below the ground estimate [m]
+  double ground_filter_tau = 0.05;  // low-pass on the ground estimate [s]
+
+  // Late touchdown / bounce: a leg scheduled in stance whose foot force is still below
+  // touch_force early in stance (stance_progress < reach_window) keeps reaching down
+  // along gravity at reach_speed, at most reach_depth below where it started. The
+  // transition blender uses this command while the contact detector reports no contact.
+  // Only after some foot has carried load (so not on the hanging rig).
+  // reach_window = 0 turns it off.
+  double reach_window = 0.25;  // [stance progress]
+  double touch_force = 15.0;   // [N], same as ContactDetector::on_force
+  double reach_speed = 0.3;    // [m/s]
+  double reach_depth = 0.06;   // [m]
 };
 
 // Desired foot position and velocity at one instant of the swing.
@@ -60,7 +79,8 @@ class SwingController {
   // Command for every leg as if it were swinging; the blender picks per leg.
   //   q_des  = IK(p_des),  dq_des = J^-1 v_des   (tracked with joint Kp, Kd)
   //   tau_ff = J^T [Kp (p_des - p) + Kd (v_des - v)]
-  // Legs scheduled in contact get a hold-in-place command.
+  // Legs scheduled in contact get a hold-in-place command, or a reach-down command if
+  // their foot has not found the ground yet (see reach_window).
   // If IK has no solution inside the joint limits, the last valid q_des is kept.
   void compute(const RobotState& s, const GaitState& g, const BodyCmd& cmd, RobotCommand& out);
 
@@ -69,14 +89,24 @@ class SwingController {
   const SwingTarget& lastMeasured(int leg) const { return measured_[leg]; }
   const Vec3& lastFoothold(int leg) const { return foothold_[leg]; }
   long ikFailures() const { return ik_failures_; }  // IK calls that returned false
+  // Ground height below the body origin in gravity-aligned axes [m] (negative), from the
+  // stance feet. Valid once a stance foot has been seen.
+  double groundHeight() const { return ground_z_; }
+  bool reaching(int leg) const { return reaching_[leg]; }  // reach-down active this cycle
 
  private:
+  // Joint and torque command that tracks a foot target (IK, damped dq, impedance tau).
+  void track(int leg, const Mat3& J, const Vec3& p, const Vec3& v, const SwingTarget& target,
+             LegCommand& l);
+
   SwingParams params_;
   std::array<LegGeometry, kNumLegs> geometry_;
   Kinematics kin_;
   FootPlanner planner_;
   double t_prev_;  // time of the previous compute() call
   long ik_failures_;
+  double ground_z_;   // filtered ground height, gravity-aligned, relative to the body origin
+  bool has_ground_;
 
   std::array<bool, kNumLegs> swinging_;
   std::array<double, kNumLegs> last_progress_;
@@ -87,6 +117,9 @@ class SwingController {
   std::array<SwingTarget, kNumLegs> target_;
   std::array<SwingTarget, kNumLegs> measured_;
   std::array<Vec3, kNumLegs> foothold_;
+  std::array<bool, kNumLegs> reaching_;
+  std::array<Vec3, kNumLegs> reach_start_;  // body frame
+  std::array<bool, kNumLegs> loaded_;  // foot has carried load since its touchdown
 };
 
 }  // namespace go1

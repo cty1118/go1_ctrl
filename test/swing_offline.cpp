@@ -132,9 +132,14 @@ int main() {
 
   // ---- 4. SwingController in the loop with perfect joint tracking ----
   // q follows q_des exactly, so FK(q) must follow p_des: checks timing, IK and dq_des.
-  SwingController swing;
+  // No touchdown depth here: the stance legs are not on a real ground, they just keep
+  // their touchdown pose, so aiming below it would lower the feet a little every step.
+  SwingParams sp4;
+  sp4.touchdown_depth = 0.0;
+  SwingController swing(sp4);
   RobotState st;
   for (int leg = 0; leg < kNumLegs; ++leg) st.q.segment<3>(3 * leg) = stand_q;
+  st.foot_force = Vec4::Constant(60.0);  // stance feet loaded: no reach-down
   st.vel = Vec3(0.3, 0.0, 0.0);
   BodyCmd cmd;
   cmd.vel = Vec3(0.3, 0.0, 0.0);
@@ -162,6 +167,94 @@ int main() {
   check(std::all_of(out.leg.begin(), out.leg.end(),
                     [](const LegCommand& l) { return l.q.allFinite() && l.tau.allFinite(); }),
         "commands are finite", 0.0);
+
+  // ---- 5. Rolled body: the swing foot must still aim at the ground ----
+  // Body rolled 10 deg (left side up), all four feet on flat ground 0.30 m below the
+  // body origin. FL and RR in stance, FR and RL in swing. The footholds, rotated into
+  // gravity-aligned axes, must be on the ground minus touchdown_depth.
+  {
+    const double roll = 10.0 * M_PI / 180.0, h = 0.30;
+    SwingController sw;  // default params: level_footholds on
+    RobotState rs;
+    rs.quat = Eigen::Quaterniond(Eigen::AngleAxisd(roll, Vec3::UnitX()));
+    const Mat3 R = rs.quat.toRotationMatrix();
+    bool ik_ok = true;
+    for (int leg = 0; leg < kNumLegs; ++leg) {
+      const Vec3 n = nominalFoot(geometry[leg]);
+      const Vec3 foot_b = R.transpose() * Vec3(n.x(), n.y(), -h);  // on the ground, body frame
+      Vec3 q_leg = stand_q;
+      ik_ok = kin.inverseKinematics(leg, foot_b, stand_q, q_leg) && ik_ok;
+      rs.q.segment<3>(3 * leg) = q_leg;
+    }
+    rs.dq.setZero();
+    rs.vel.setZero();
+    rs.foot_force = Vec4::Constant(60.0);
+    GaitState gs;
+    gs.period = 0.5;
+    for (int leg = 0; leg < kNumLegs; ++leg) {
+      const bool stance = (leg == FL || leg == RR);
+      gs.leg[leg].contact = stance;
+      gs.leg[leg].swing_progress = stance ? 0.0 : 0.3;
+    }
+    RobotCommand o;
+    rs.t = 0.0;
+    sw.compute(rs, gs, BodyCmd(), o);
+    double ground_err = std::abs(sw.groundHeight() + h);
+    double land_err = 0.0, old_way = 0.0;
+    for (int leg : {FR, RL}) {
+      const Vec3 f_g = R * sw.lastFoothold(leg);
+      land_err = std::max(land_err, std::abs(f_g.z() - (-h - sw.params().touchdown_depth)));
+      // The old foothold for comparison: under the hip at the liftoff height in the body
+      // frame, rotated into gravity-aligned axes.
+      const Vec3 n = nominalFoot(geometry[leg]);
+      const Vec3 old_g = R * Vec3(n.x(), n.y(), kin.forwardKinematics(leg, rs.legQ(leg)).z());
+      old_way = std::max(old_way, std::abs(old_g.z() + h));
+    }
+    std::fprintf(stderr, "rolled 10 deg: old foothold would miss the ground by up to %.1f mm\n",
+                 old_way * 1e3);
+    check(ik_ok, "test pose IK", 0.0);
+    check(ground_err < 1e-9, "ground estimate from stance feet", ground_err);
+    check(land_err < 1e-9, "swing foothold on the ground (rolled)", land_err);
+  }
+
+  // ---- 6. Late touchdown: the foot keeps reaching down until it carries load ----
+  // FR ends its swing, is scheduled in stance but its force stays 0 for 50 ms: the
+  // target must move down along gravity at reach_speed. Then the force arrives.
+  {
+    SwingController sw;
+    RobotState rs;
+    for (int leg = 0; leg < kNumLegs; ++leg) rs.q.segment<3>(3 * leg) = stand_q;
+    rs.foot_force = Vec4::Constant(60.0);
+    GaitState gs;
+    gs.period = 0.5;
+    RobotCommand o;
+    // Last swing sample of FR (the others in stance and loaded).
+    for (int leg = 0; leg < kNumLegs; ++leg) gs.leg[leg].contact = (leg != FR);
+    gs.leg[FR].swing_progress = 0.99;
+    rs.t = 0.0;
+    sw.compute(rs, gs, BodyCmd(), o);
+    const double z_end = sw.lastTarget(FR).p.z();
+    // FR in stance, unloaded.
+    gs.leg[FR].contact = true;
+    rs.foot_force[FR] = 0.0;
+    for (int i = 1; i <= 25; ++i) {
+      rs.t = i * dt;
+      gs.leg[FR].stance_progress = 0.002 * i;
+      sw.compute(rs, gs, BodyCmd(), o);
+    }
+    const bool was_reaching = sw.reaching(FR);
+    const double drop = z_end - sw.lastTarget(FR).p.z();
+    const double expected = sw.params().reach_speed * 25 * dt;  // level body: straight down
+    // Load arrives: back to the normal stance hold.
+    rs.foot_force[FR] = 60.0;
+    rs.t += dt;
+    sw.compute(rs, gs, BodyCmd(), o);
+    std::fprintf(stderr, "late touchdown: target moved down %.1f mm in 50 ms\n", drop * 1e3);
+    check(was_reaching, "reaches down while unloaded", 0.0);
+    check(std::abs(drop - expected) < 1e-3, "reach speed", std::abs(drop - expected));
+    check(!sw.reaching(FR), "stops reaching once loaded", 0.0);
+    check(o.leg[FR].q.allFinite() && o.leg[FR].tau.allFinite(), "reach command finite", 0.0);
+  }
 
   std::fprintf(stderr, failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
   return failures ? 1 : 0;

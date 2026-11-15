@@ -292,6 +292,21 @@ bool debug_gait_valid = false;
         }
         scheduler.setWalkFeedback(walkFeedback(s, kin, contact));
         const GaitState g = scheduler.update(s.t);
+        if (scheduler.walkBlocked())  // DEBUG (Member 4): Walk waiting for support
+          ROS_WARN_THROTTLE(0.2, "[walk] blocked t=%.2f com_shift %.3f %.3f", s.t,
+                            g.com_shift.x(), g.com_shift.y());
+        // Walk is a static gait: while the scheduler waits for support, the body must not
+        // keep moving at the commanded speed, or the CoM leaves the support triangle.
+        if (scheduler.walkBlocked()) {
+          body.vel.setZero();
+          body.yaw_rate = 0.0;
+        }
+        // Walk is the slow gait: on the ground it fell at 0.25 m/s, stable up to 0.2 m/s.
+        if (fsm.gait() == GaitType::WALK) {
+          const double v = body.vel.head<2>().norm(), v_max = 0.15;
+          if (v > v_max) body.vel.head<2>() *= v_max / v;
+          body.yaw_rate = std::fmax(-0.3, std::fmin(0.3, body.yaw_rate));
+        }
 debug_gait = g;
 debug_contact = contact;
 debug_gait_valid = true;

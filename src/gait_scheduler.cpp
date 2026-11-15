@@ -131,18 +131,20 @@ bool GaitScheduler::prepareWalk(double next,double now) {
 		}
   }
   
-  if(now-feedback_.stamp<0 || now-feedback_.stamp>.1 || !feedback_.com.allFinite() || !feedback_.world_R_body.allFinite()) 
+  if(std::abs(now-feedback_.stamp)>.1 || !feedback_.com.allFinite() || !feedback_.world_R_body.allFinite()) 
 		return false;
   
   Vec3 v[3]; int n=0;
   
   for(int i=0;i<4;++i) if(i!=leg) {
-    if(!feedback_.contact[i] || !feedback_.feet[i].allFinite()) return false;
+    if(!feedback_.feet[i].allFinite()) return false;
     v[n++]=feedback_.feet[i];
   }
   
   Vec3 center=(v[0]+v[1]+v[2])/3.; center.z()=feedback_.com.z();
   shift_=feedback_.world_R_body.transpose()*(center-feedback_.com);
+  // contact check after updating shift_, so the CoM target is never stale
+  for(int i=0;i<4;++i) if(i!=leg && !feedback_.contact[i]) return false;
   double area=cross(v[1]-v[0],v[2]-v[0]);
   
   if(std::abs(area)<1e-6) return false;

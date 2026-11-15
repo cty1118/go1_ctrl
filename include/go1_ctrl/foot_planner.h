@@ -10,6 +10,10 @@ struct FootPlannerParams {
   double max_offset_x = 0.15;    // limit on |foothold - nominal| in x [m]
   double max_offset_y = 0.08;    // limit on |foothold - nominal| in y [m]
   double freeze_progress = 0.8;  // stop moving the foothold after this swing progress
+  // Cap on T_stance in the v * T_stance / 2 term. Walk has a long stance (~1.3 s) and the
+  // body moves on purpose to shift the CoM; uncapped, that motion threw the footholds
+  // 6-9 cm off (front feet behind the hips). Trot (~0.3 s) is unchanged.
+  double max_t_stance = 0.3;      // [s]
   double velocity_filter_tau = 0.1;  // low-pass time constant on the body velocity [s]
 };
 

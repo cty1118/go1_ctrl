@@ -28,5 +28,6 @@
     <rosparam command="load" file="$(find go1_ctrl)/config/fsm.yaml"/>
     <rosparam command="load" file="$(find go1_ctrl)/config/robot.yaml"/>
     <rosparam command="load" file="$(find go1_ctrl)/config/gaits.yaml"/>
+    <rosparam command="load" file="$(find go1_ctrl)/config/stance.yaml" ns="stance"/>
   </node>
 </launch>

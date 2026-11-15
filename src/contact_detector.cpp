@@ -1,11 +1,17 @@
 // Owner: Member 6. Contact detection.
-// PLACEHOLDER (by Godfred): plain threshold. Replace with hysteresis + debouncing.
+// LOCAL TEST VERSION (Member 4): force threshold with hysteresis.
 #include "go1_ctrl/contact_detector.h"
 
 namespace go1 {
 std::array<bool, kNumLegs> ContactDetector::update(const RobotState& s) {
-  std::array<bool, kNumLegs> c{};
-  for (int leg = 0; leg < kNumLegs; ++leg) c[leg] = s.foot_force[leg] > 20.0;
-  return c;
+  for (int leg = 0; leg < kNumLegs; ++leg) {
+    const double f = s.foot_force[leg];
+    if (contact_[leg]) {
+      if (f < off_force) contact_[leg] = false;
+    } else if (f > on_force) {
+      contact_[leg] = true;
+    }
+  }
+  return contact_;
 }
 }  // namespace go1

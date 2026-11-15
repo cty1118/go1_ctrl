@@ -1,25 +1,49 @@
-# Owner: Member 5. Stance impedance gains.
-# Load under the controller node (sim.launch, inside the go1_ctrl node):
+# Owner: Member 5. Stance gains.
+# Loaded under the controller node as ~stance/... by sim.launch:
 #   <rosparam command="load" file="$(find go1_ctrl)/config/stance.yaml" ns="stance"/>
-# Until then the same values are the defaults in stance_controller.h.
-# Starting values for simulation, not tuned yet.
+# Edit and relaunch to tune, no rebuild needed. The same values are the defaults in
+# stance_controller.h. Starting values for simulation, not hardware-tuned.
 
 mass: 13.1                 # total robot mass [kg] (go1.urdf)
 gravity: 9.81
+height: 0.33               # body height target [m]; 0 = use BodyCmd height (0.30)
 
-# Virtual spring-damper per stance leg, x / y / z (world-aligned axes)
+# ---- Balance controller (stance legs) ----
+# Ground reaction forces of all stance feet solved together, horizontal forces included,
+# then clipped to the friction cone. false = the per-leg spring-damper law below.
+balance: true
+kp_height: 1000.0          # [N/m]
+kd_height: 100.0           # [N s/m]
+kd_vel_xy: 150.0           # [N s/m]
+kd_yaw: 5.0                # [Nm s/rad]
+w_torque: 30.0             # weight of the torque rows vs the force rows
+reg: 0.001                 # force regularisation
+friction: 0.6              # friction coefficient
+fz_min: 5.0                # [N]
+fz_max: 250.0              # [N]
+
+# Attitude PD + integral: the desired body torque (used by both laws).
+kp_roll: 150.0             # [Nm/rad]
+kd_roll: 6.0               # [Nm s/rad]
+kp_pitch: 150.0            # [Nm/rad]
+kd_pitch: 6.0              # [Nm s/rad]
+ki_roll: 60.0              # [Nm/(rad s)], 0 turns the integral off
+ki_pitch: 60.0             # [Nm/(rad s)]
+i_max: 10.0                # clamp on each integral torque [Nm]
+
+# Per-leg law (swing legs, and stance legs when balance is false):
+# virtual spring-damper per leg, x / y / z (world-aligned axes)
 kp: [300.0, 300.0, 800.0]  # [N/m]
 kd: [30.0, 30.0, 60.0]     # [N s/m]
 
-# Attitude PD (extra vertical force between legs)
-kp_roll: 50.0              # [Nm/rad]
-kd_roll: 3.0               # [Nm s/rad]
-kp_pitch: 80.0             # [Nm/rad]
-kd_pitch: 5.0              # [Nm s/rad]
-
-# Joint command during stance: no position stiffness, light damping (hip, thigh, calf)
+# Joint PD during stance (hip, thigh, calf), towards a level body at the target height.
+# 0 = pure torque control (M5's original).
 joint_kp: [0.0, 0.0, 0.0]
-joint_kd: [1.0, 1.0, 1.0]
+joint_kd: [1.5, 1.5, 1.5]
 
 # Stance torque clamp per joint (hip, thigh, calf) [Nm]
-tau_max: [20.0, 20.0, 30.0]
+tau_max: [23.7, 23.7, 35.5]
+kp_com: 400.0              # Walk: force per metre of CoM shift (Member 3) [N/m]
+support_force: 10.0        # stance foot counts as support above this force [N]
+kp_hold: 200.0             # station keeping with no command [N/m], 0 = off
+hold_max: 30.0             # [N]

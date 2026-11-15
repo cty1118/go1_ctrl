@@ -34,7 +34,8 @@ Vec3 FootPlanner::foothold(const Vec3& p_nominal, const Vec3& v, const Vec3& v_c
   const Eigen::Vector2d v_hip_cmd(v_cmd.x() - yaw_rate_cmd * r.y(),
                                   v_cmd.y() + yaw_rate_cmd * r.x());
 
-  Eigen::Vector2d offset = v_hip * t_stance / 2.0 + params_.k_raibert * (v_hip - v_hip_cmd);
+  const double ts = std::min(t_stance, params_.max_t_stance);
+  Eigen::Vector2d offset = v_hip * ts / 2.0 + params_.k_raibert * (v_hip - v_hip_cmd);
   offset.x() = std::max(-params_.max_offset_x, std::min(params_.max_offset_x, offset.x()));
   offset.y() = std::max(-params_.max_offset_y, std::min(params_.max_offset_y, offset.y()));
 
